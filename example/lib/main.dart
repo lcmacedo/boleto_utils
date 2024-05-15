@@ -30,6 +30,7 @@ class _HomeState extends State<Home> {
   late BoletoUtils boletoUtils;
   BoletoValidado? boletoValidado;
   StreamSubscription? streamBarcode;
+  final _textController = TextEditingController();
 
   @override
   void initState() {
@@ -70,6 +71,32 @@ class _HomeState extends State<Home> {
             ElevatedButton(
               onPressed: () async => await startBarcodeScanStream(context),
               child: const Text('Start barcode scan'),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: TextField(
+                controller: _textController,
+                onSubmitted: (value) async {
+                  boletoValidado = boletoUtils.validarBoleto(value);
+                  await Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => InfosBoleto(boletoValidado),
+                    ),
+                  );
+                },
+                decoration: InputDecoration(
+                  hintText: 'Type barcode',
+                  suffixIcon: IconButton(
+                    padding: EdgeInsets.zero,
+                    icon: const Icon(
+                      Icons.clear,
+                    ),
+                    onPressed: () {
+                      _textController.clear();
+                    },
+                  ),
+                ),
+              ),
             ),
           ],
         ),

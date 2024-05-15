@@ -157,14 +157,14 @@ class BoletoUtils {
         bloco4 =
             barcode.substring(33, 44) + calculaMod10(barcode.substring(33, 44));
       } else if (identificacaoValorRealOuReferencia?.mod == 11) {
-        bloco1 =
-            barcode.substring(0, 11) + calculaMod11(barcode.substring(0, 11));
-        bloco2 =
-            barcode.substring(11, 22) + calculaMod11(barcode.substring(11, 22));
-        bloco3 =
-            barcode.substring(22, 33) + calculaMod11(barcode.substring(22, 33));
-        bloco4 =
-            barcode.substring(33, 44) + calculaMod11(barcode.substring(33, 44));
+        bloco1 = barcode.substring(0, 11) +
+            calculaMod11Arrecadacao(barcode.substring(0, 11));
+        bloco2 = barcode.substring(11, 22) +
+            calculaMod11Arrecadacao(barcode.substring(11, 22));
+        bloco3 = barcode.substring(22, 33) +
+            calculaMod11Arrecadacao(barcode.substring(22, 33));
+        bloco4 = barcode.substring(33, 44) +
+            calculaMod11Arrecadacao(barcode.substring(33, 44));
       }
 
       resultado = bloco1 + bloco2 + bloco3 + bloco4;
@@ -286,8 +286,8 @@ class BoletoUtils {
             'A validação do dígito verificador falhou. Tem certeza que inseriu a numeração correta?',
       );
     } else {
-      final obj = {
-        TipoCodigo.linhaDigitavel: BoletoValidado(
+      if (tipoCodigo == TipoCodigo.linhaDigitavel) {
+        boletoValidado = BoletoValidado(
           sucesso: true,
           codigoInput: codigo,
           mensagem: 'Boleto válido',
@@ -301,8 +301,9 @@ class BoletoUtils {
             tipoCodigo: TipoCodigo.linhaDigitavel,
           ),
           valor: identificarValor(codigo),
-        ),
-        TipoCodigo.codigoDeBarras: BoletoValidado(
+        );
+      } else if (tipoCodigo == TipoCodigo.codigoDeBarras) {
+        boletoValidado = BoletoValidado(
           sucesso: true,
           codigoInput: codigo,
           mensagem: 'Boleto válido',
@@ -319,23 +320,37 @@ class BoletoUtils {
             tipoCodigo: TipoCodigo.codigoDeBarras,
           ),
           valor: identificarValor(codigo),
-        )
-      };
-
-      boletoValidado = obj[tipoCodigo] ??
-          BoletoValidado(
-            sucesso: true,
-            codigoInput: codigo,
-            mensagem: 'Boleto válido',
-          );
+        );
+      } else {
+        BoletoValidado(
+          sucesso: true,
+          codigoInput: codigo,
+          mensagem: 'Boleto válido',
+        );
+      }
     }
 
     return boletoValidado;
   }
 
-  String calculaDVCodBarras({
+  String calculaDVCodBarrasBancario({
     required String codigo,
-    required int posicaoCodigo,
+  }) {
+    ///Verifica a numeração do código de barras, extrai o DV (dígito verificador) presente na posição indicada, realiza o cálculo do dígito
+    ///utilizando o módulo indicado e retorna o dígito verificador. Serve para validar o código de barras.
+    ///Requer numeração completa (com ou sem formatação), caracteres numéricos que representam a posição do
+    ///dígito verificador no código de barras e caracteres numéricos que representam o módulo a ser usado (valores aceitos: 10 ou 11).
+    codigo = codigo.numericOnly;
+
+    final listaCodigo = codigo.split('');
+    listaCodigo.removeAt(4);
+    codigo = listaCodigo.join('');
+
+    return calculaMod11Bancario(codigo);
+  }
+
+  String calculaDVCodBarrasArrecadacao({
+    required String codigo,
     required int mod,
   }) {
     ///Verifica a numeração do código de barras, extrai o DV (dígito verificador) presente na posição indicada, realiza o cálculo do dígito
@@ -345,13 +360,13 @@ class BoletoUtils {
     codigo = codigo.numericOnly;
 
     final listaCodigo = codigo.split('');
-    listaCodigo.removeAt(posicaoCodigo);
+    listaCodigo.removeAt(3);
     codigo = listaCodigo.join('');
 
     if (mod == 10) {
       return calculaMod10(codigo);
     } else {
-      return calculaMod11(codigo);
+      return calculaMod11Arrecadacao(codigo);
     }
   }
 
@@ -408,10 +423,10 @@ class BoletoUtils {
           final dv3 = codigo.substring(35, 36);
           final dv4 = codigo.substring(47, 48);
 
-          final valid = (calculaMod11(bloco1) == dv1 &&
-              calculaMod11(bloco2) == dv2 &&
-              calculaMod11(bloco3) == dv3 &&
-              calculaMod11(bloco4) == dv4);
+          final valid = (calculaMod11Arrecadacao(bloco1) == dv1 &&
+              calculaMod11Arrecadacao(bloco2) == dv2 &&
+              calculaMod11Arrecadacao(bloco3) == dv3 &&
+              calculaMod11Arrecadacao(bloco4) == dv4);
 
           return valid;
         }
@@ -423,23 +438,17 @@ class BoletoUtils {
 
       if (tipoBoleto == TipoBoleto.banco ||
           tipoBoleto == TipoBoleto.cartaoDeCredito) {
-        final dv =
-            calculaDVCodBarras(codigo: codigo, posicaoCodigo: 4, mod: 11);
+        final dv = calculaDVCodBarrasBancario(codigo: codigo);
         resultado = codigo.substring(0, 4) + dv + codigo.substring(5);
       } else {
         final identificacaoValorRealOuReferencia =
             _identificarReferencia(codigo);
 
-        final listaString = codigo.split('');
-        listaString.removeAt(3);
-        resultado = listaString.join('');
-
-        final dv = calculaDVCodBarras(
+        final dv = calculaDVCodBarrasArrecadacao(
           codigo: codigo,
-          posicaoCodigo: 3,
           mod: identificacaoValorRealOuReferencia?.mod ?? 10,
         );
-        resultado = resultado.substring(0, 3) + dv + resultado.substring(3, 4);
+        resultado = codigo.substring(0, 3) + dv + codigo.substring(4);
       }
     } else if (tipoCodigo == TipoCodigo.invalido) {
       return false;
@@ -521,8 +530,7 @@ class BoletoUtils {
     return soma.toString();
   }
 
-  String calculaMod11(String numero) {
-    ///	Realiza o cálculo Módulo 11 do número inserido.
+  String calculaMod11Bancario(String numero) {
     final numeroReverso = numero.split('').reversed.join();
 
     int soma = 0;
@@ -540,15 +548,48 @@ class BoletoUtils {
         peso = 2;
       }
     }
-    digito = soma % 11;
 
-    if (digito < 2) {
-      digito = 0;
-    } else if (digito == 10) {
-      digito = 1;
-    } else if (digito >= 2) {
-      digito = 11 - digito;
+    final resto = soma % 11;
+
+    digito = 11 - resto;
+
+    if (digito == 0 || digito == 10 || digito == 11) {
+      return "1";
     }
+
+    return digito.toString();
+  }
+
+  String calculaMod11Arrecadacao(String numero) {
+    final numeroReverso = numero.split('').reversed.join();
+
+    int soma = 0;
+    int peso = 2;
+    int base = 9;
+    late int digito;
+
+    for (int i = 0; i < numeroReverso.length; i++) {
+      String c = numeroReverso[i];
+
+      soma += (int.parse(c)) * peso;
+      if (peso < base) {
+        peso++;
+      } else {
+        peso = 2;
+      }
+    }
+
+    final resto = soma % 11;
+
+    if (resto == 0 || resto == 1) {
+      return "0";
+    }
+
+    if (resto == 10) {
+      return "1";
+    }
+
+    digito = 11 - resto;
 
     return digito.toString();
   }
